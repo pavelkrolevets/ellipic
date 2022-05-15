@@ -1,4 +1,8 @@
-package elliptic
+package ecjacobian
+
+import (
+	"math/big"
+)
 
 func (curve *CurveParams) ScalarMult(Bx, By *big.Int, k []byte) (*big.Int, *big.Int) {
 
