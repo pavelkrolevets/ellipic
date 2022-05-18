@@ -18,11 +18,11 @@ type CurveParams struct {
 	Name    string   // the canonical name of the curve
 }
 
-func (curve *CurveParams) ScalarBaseMult(k []byte) (*big.Int, *big.Int) {
+func (curve *CurveParams) ScalarBaseMult(k *big.Int) (*big.Int, *big.Int) {
 	return curve.ScalarMultGeneric(curve.Gx, curve.Gy, k)
 }
 
-func (curve *CurveParams) ScalarMultGeneric(Bx, By *big.Int, k []byte) (*big.Int, *big.Int) {
+func (curve *CurveParams) ScalarMultGeneric(Bx, By, k *big.Int) (*big.Int, *big.Int) {
 
 	if !curve.IsOnCurveGeneric(Bx, By) {
 		log.Panic("Point is not on curve")
@@ -33,25 +33,27 @@ func (curve *CurveParams) ScalarMultGeneric(Bx, By *big.Int, k []byte) (*big.Int
 		return nil, nil
 	}
 
-	x, y := new(big.Int), new(big.Int)
+	xRes, yRes := new(big.Int), new(big.Int)
+	xAddend, yAddend := Bx, By
 
-	for _, byte := range k {
-		for bitNum := 0; bitNum < 8; bitNum++ {
-			x, y = curve.AddPointsGeneric(x, y, x, y)
-			if byte&0x80 == 0x80 {
-				x, y = curve.AddPointsGeneric(curve.Gx, curve.Gy, x, y)
-			}
-			byte <<= 1
+	for k.Cmp(big.NewInt(0)) != 0 {
+		if k.Bit(0) != 0 {
+			// Add
+			xRes, yRes = curve.AddPointsGeneric(xRes, yRes, xAddend, yAddend)
 		}
+		// Double
+		xAddend, yAddend = curve.DoublePointsGeneric(xAddend, yAddend)
+		k.Rsh(k, 1)
 	}
 
-	if !curve.IsOnCurveGeneric (x, y) {
+	if !curve.IsOnCurveGeneric (xRes, yRes) {
 		log.Panic("Point is not on curve")
 		return nil, nil
 	}
 
-	return x, y
+	return xRes, yRes
 }
+
 
 func (curve *CurveParams) AddPointsGeneric(x1, y1, x2, y2 *big.Int) (*big.Int, *big.Int) {
 
@@ -102,6 +104,40 @@ func (curve *CurveParams) AddPointsGeneric(x1, y1, x2, y2 *big.Int) (*big.Int, *
 	return x3, y3
 }
 
+func (curve *CurveParams) DoublePointsGeneric(x1, y1 *big.Int) (*big.Int, *big.Int) {
+
+	if x1.Cmp(big.NewInt(0)) == 0 && y1.Cmp(big.NewInt(0)) == 0 {
+		// 0 * point2 = 0
+		return big.NewInt(0), big.NewInt(0)
+	}
+
+	lamda := new(big.Int)
+	x3, y3 := new(big.Int), new(big.Int)
+
+
+	// This is the case point1 == point2.
+	// (3 * x1 * x1 + curve.a) * inverse_mod(2 * y1, curve.p)
+	lamda.Mul(x1, x1)
+	lamda.Mul(lamda, big.NewInt(3))
+	lamda.Add(lamda, curve.A)
+	lamda.Mul(lamda, new(big.Int).ModInverse(new(big.Int).Mul(y1, big.NewInt(2)), curve.P))
+
+	x3.Mul(lamda, lamda)
+	x3.Sub(x3, x1)
+	x3.Sub(x3, x1)
+	x3.Mod(x3, curve.P)
+
+	y3.Add(y1, new(big.Int).Mul(lamda, new(big.Int).Sub(x3, x1)))
+	y3.Neg(y3)
+	y3.Mod(y3, curve.P)
+
+	if !curve.IsOnCurveGeneric(x3, y3) {
+		log.Panic("Point is not on curve")
+		return nil, nil
+	}
+
+	return x3, y3
+}
 
 // polynomial returns x³ - 3x + b.
 // PK polynomial returns x³ + ax + b.
@@ -135,13 +171,13 @@ func (curve *CurveParams) IsOnCurveGeneric(x, y *big.Int) bool {
 
 // GenerateKey returns a public/private key pair. The private key is
 // generated using the given reader, which must return random data.
-func GenerateKey(curve CurveParams, rand io.Reader) (priv []byte, x, y *big.Int, err error) {
+func GenerateKey(curve CurveParams, rand io.Reader) (priv []byte, pubX, pubY *big.Int, err error) {
 	N := curve.N
 	bitSize := N.BitLen()
 	byteLen := (bitSize + 7) / 8
 	priv = make([]byte, byteLen)
 
-	for x == nil {
+	for pubX == nil {
 		_, err = io.ReadFull(rand, priv)
 		if err != nil {
 			return
@@ -157,8 +193,7 @@ func GenerateKey(curve CurveParams, rand io.Reader) (priv []byte, x, y *big.Int,
 		if new(big.Int).SetBytes(priv).Cmp(N) >= 0 {
 			continue
 		}
-
-		x, y = curve.ScalarBaseMult(priv)
+		pubX, pubY = curve.ScalarBaseMult(new(big.Int).SetBytes(priv))
 	}
 	return
 }

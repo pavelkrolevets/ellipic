@@ -1,60 +1,54 @@
 package main
 
 import (
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"log"
 	"math/big"
 
-	"github.com/pavelkrolevets/ecdsa/nist"
+	"github.com/pavelkrolevets/ecdsa/ecgeneric"
 	"github.com/pavelkrolevets/ecdsa/gost"
+	"github.com/pavelkrolevets/ecdsa/nist"
 	"golang.org/x/crypto/sha3"
 )
 
 
 
 func main() {
-	m_b := []byte("Hello signature!")
-	h_m_b := sha3.New256()
-	h_m_b.Write(m_b)
-	fmt.Println(hex.EncodeToString(h_m_b.Sum(nil)))
-
-	pub_k_X, pub_k_Y := new(big.Int), new(big.Int)
+	// Tiny EC play
+	X, Y := new(big.Int), new(big.Int)
 	for i := 0; i < 24; i++ {
-		pub_k_X, pub_k_Y = nist.TinyEc.AddPointsGeneric(nist.TinyEc.Gx, nist.TinyEc.Gy, pub_k_X, pub_k_Y)
-		log.Printf("Point %d, (%d, %d) \n", i, pub_k_X.Uint64(), pub_k_Y.Uint64())
+		X, Y = nist.TinyEc.AddPointsGeneric(nist.TinyEc.Gx, nist.TinyEc.Gy, X, Y)
+		log.Printf("Point %d, (%d, %d) \n", i, X.Uint64(), Y.Uint64())
 	}
-
-
 	log.Println(nist.Secp256k1.IsOnCurveGeneric(nist.Secp256k1.Gx, nist.Secp256k1.Gy))
 
-
-	// pub_k_X, pub_k_Y = new(big.Int), new(big.Int)
-	// for i := 0; i < 24; i++ {
-	// 	pub_k_X, pub_k_Y = ecgeneric.Secp256k1.AddPointsGeneric(ecgeneric.Secp256k1.Gx, ecgeneric.Secp256k1.Gy, pub_k_X, pub_k_Y)
-	// 	log.Printf("Point %d, (%s, %s) \n", 2, fmt.Sprintf("%x", pub_k_X), fmt.Sprintf("%x", pub_k_Y))
-	// }
-
-	// priv_k, pub_k_X, pub_k_Y, err := ecgeneric.GenerateKey(ecgeneric.Secp256k1, rand.Reader)
-	// if err!= nil {
-	// 	log.Fatal(err)
-	// }
-	// log.Printf("Point on curve, (%s, %s) \n", fmt.Sprintf("%x", pub_k_X), fmt.Sprintf("%x", pub_k_Y))
-	// log.Printf("Private key %s", hex.EncodeToString(priv_k))
-
-	// secp256k1 check 
-	priv, err := hex.DecodeString("52edb68fe48aff9b5c071f076285c53ac5b1a3501139bb2cb2922b7f3923d23e")
-	if err != nil {
-		log.Fatal(err)
-	}
-	pub_k_X, pub_k_Y = nist.Secp256k1.ScalarBaseMult(priv)
-	log.Printf("Point %d, (%s, %s) \n", 2, fmt.Sprintf("%x", pub_k_X), fmt.Sprintf("%x", pub_k_Y))
+	// Secp256k1 check 
+	pubX, pubY := new(big.Int), new(big.Int)
+	priv := ecgeneric.BigFromHex("52edb68fe48aff9b5c071f076285c53ac5b1a3501139bb2cb2922b7f3923d23e")
+	pubX, pubY = nist.Secp256k1.ScalarBaseMult(priv)
+	log.Printf("Point %d, (%s, %s) \n", 2, fmt.Sprintf("%x", pubX), fmt.Sprintf("%x", pubY))
 	
 	//Gost ex1 check
-	priv, err = hex.DecodeString("7A929ADE789BB9BE10ED359DD39A72C11B60961F49397EEE1D19CE9891EC3B28")
+	priv = ecgeneric.BigFromHex("7A929ADE789BB9BE10ED359DD39A72C11B60961F49397EEE1D19CE9891EC3B28")
+	X, Y = gost.GostEx1.ScalarBaseMult(priv)
+	log.Printf("Point %d, (%s, %s) \n", 2, fmt.Sprintf("%x", X), fmt.Sprintf("%x", Y))
+	
+	// SECP256k1 signature check
+	m := []byte("Hello signature!")
+	hash := sha3.New256()
+	hash.Write(m)
+	fmt.Println("Hash of the message ", hex.EncodeToString(hash.Sum(nil)))
+	priv_, pubX, pubY, err := ecgeneric.GenerateKey(nist.Secp256k1, rand.Reader)
 	if err != nil {
 		log.Fatal(err)
 	}
-	pub_k_X, pub_k_Y = gost.GostEx1.ScalarBaseMult(priv)
-	log.Printf("Point %d, (%s, %s) \n", 2, fmt.Sprintf("%x", pub_k_X), fmt.Sprintf("%x", pub_k_Y))
+	r, s, err := nist.Sign(new(big.Int).SetBytes(priv_), hash.Sum(nil), &nist.Secp256k1, rand.Reader)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("r, s signature params (%s, %s) \n", fmt.Sprintf("%x", r), fmt.Sprintf("%x", s))
+	verify, _ := nist.Verify(hash.Sum(nil), r, s, pubX, pubY)
+	log.Println("Signature verifyed ", verify)
 }
