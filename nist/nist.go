@@ -52,6 +52,9 @@ func Sign(private_key *big.Int, m []byte, curve *ecgeneric.CurveParams, rand io.
 		if err != nil {
 			return nil, nil, err
 		}
+		if new(big.Int).SetBytes(k[:]).Cmp(curve.N) == 1 {
+			continue
+		}
 		kModInv := new(big.Int).ModInverse(new(big.Int).SetBytes(k[:]), curve.N)
 		x, _= curve.ScalarBaseMult(new(big.Int).SetBytes(k[:]))
 		r.Set(x.Mod(x, curve.N))
