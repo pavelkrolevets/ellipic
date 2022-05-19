@@ -23,27 +23,40 @@ func (curve *CurveParams) ScalarBaseMult(k *big.Int) (*big.Int, *big.Int) {
 }
 
 func (curve *CurveParams) ScalarMultGeneric(Bx, By, k *big.Int) (*big.Int, *big.Int) {
-
+	
 	if !curve.IsOnCurveGeneric(Bx, By) {
 		log.Panic("Point is not on curve")
 		return nil, nil
 	}
-	if Bx.Cmp(big.NewInt(0)) == 0 && Bx.Cmp(big.NewInt(0)) == 0 {
-		log.Panic("Point is null")
-		return nil, nil
+	
+	if k.Cmp(big.NewInt(0)) == -1 {
+		// k * point = -k * (-point)
+		Bx, By = curve.PointNeg(Bx, By)
+		return curve.ScalarMultGeneric(Bx, By, k.Neg(k))
 	}
+
+	if new(big.Int).Mod(k, curve.N).Cmp(big.NewInt(0)) == 0 {
+		return big.NewInt(0), big.NewInt(0)
+	}
+
+	if Bx.Cmp(big.NewInt(0)) == 0 && Bx.Cmp(big.NewInt(0)) == 0 {
+		// k * (0,0) = (0,0)
+		return big.NewInt(0), big.NewInt(0)
+	}
+
 
 	xRes, yRes := new(big.Int), new(big.Int)
 	xAddend, yAddend := Bx, By
-
-	for k.Cmp(big.NewInt(0)) != 0 {
-		if k.Bit(0) != 0 {
+	n := new(big.Int).Set(k)
+	
+	for n.Cmp(big.NewInt(0)) != 0 {
+		if n.Bit(0) != 0 {
 			// Add
 			xRes, yRes = curve.AddPointsGeneric(xRes, yRes, xAddend, yAddend)
 		}
 		// Double
 		xAddend, yAddend = curve.DoublePointsGeneric(xAddend, yAddend)
-		k.Rsh(k, 1)
+		n.Rsh(n, 1)
 	}
 
 	if !curve.IsOnCurveGeneric (xRes, yRes) {
@@ -56,6 +69,16 @@ func (curve *CurveParams) ScalarMultGeneric(Bx, By, k *big.Int) (*big.Int, *big.
 
 
 func (curve *CurveParams) AddPointsGeneric(x1, y1, x2, y2 *big.Int) (*big.Int, *big.Int) {
+	
+	if !curve.IsOnCurveGeneric(x1, y1) {
+		log.Panic("Point is not on curve")
+		return nil, nil
+	}
+
+	if !curve.IsOnCurveGeneric(x2, y2) {
+		log.Panic("Point is not on curve")
+		return nil, nil
+	}
 
 	if x1.Cmp(big.NewInt(0)) == 0 && y1.Cmp(big.NewInt(0)) == 0 {
 		// 0 + point2 = point2
@@ -75,18 +98,9 @@ func (curve *CurveParams) AddPointsGeneric(x1, y1, x2, y2 *big.Int) (*big.Int, *
 	lamda := new(big.Int)
 	x3, y3 := new(big.Int), new(big.Int)
 
-	if x1.Cmp(x2) == 0 {
-		// This is the case point1 == point2.
-		// (3 * x1 * x1 + curve.a) * inverse_mod(2 * y1, curve.p)
-		lamda.Mul(x1, x1)
-		lamda.Mul(lamda, big.NewInt(3))
-		lamda.Add(lamda, curve.A)
-		lamda.Mul(lamda, new(big.Int).ModInverse(new(big.Int).Mul(y1, big.NewInt(2)), curve.P))
-	} else {
-		// This is the case point1 != point2.
-		// m = (y1 - y2) * inverse_mod(x1 - x2, curve.p)
-		lamda.Mul(new(big.Int).Sub(y1, y2), new(big.Int).ModInverse(new(big.Int).Sub(x1, x2), curve.P))
-	}
+	// m = (y1 - y2) * inverse_mod(x1 - x2, curve.p)
+	lamda.Mul(new(big.Int).Sub(y1, y2), new(big.Int).ModInverse(new(big.Int).Sub(x1, x2), curve.P))
+	
 	x3.Mul(lamda, lamda)
 	x3.Sub(x3, x1)
 	x3.Sub(x3, x2)
@@ -106,6 +120,11 @@ func (curve *CurveParams) AddPointsGeneric(x1, y1, x2, y2 *big.Int) (*big.Int, *
 
 func (curve *CurveParams) DoublePointsGeneric(x1, y1 *big.Int) (*big.Int, *big.Int) {
 
+	if !curve.IsOnCurveGeneric(x1, y1) {
+		log.Panic("Point is not on curve")
+		return nil, nil
+	}
+
 	if x1.Cmp(big.NewInt(0)) == 0 && y1.Cmp(big.NewInt(0)) == 0 {
 		// 0 * point2 = 0
 		return big.NewInt(0), big.NewInt(0)
@@ -114,8 +133,6 @@ func (curve *CurveParams) DoublePointsGeneric(x1, y1 *big.Int) (*big.Int, *big.I
 	lamda := new(big.Int)
 	x3, y3 := new(big.Int), new(big.Int)
 
-
-	// This is the case point1 == point2.
 	// (3 * x1 * x1 + curve.a) * inverse_mod(2 * y1, curve.p)
 	lamda.Mul(x1, x1)
 	lamda.Mul(lamda, big.NewInt(3))
@@ -160,6 +177,11 @@ func (curve *CurveParams) IsOnCurveGeneric(x, y *big.Int) bool {
 		y.Sign() < 0 || y.Cmp(curve.P) >= 0 {
 			log.Fatal("Sign negative")
 		return false
+	}
+
+	if x.Cmp(big.NewInt(0)) == 0 && x.Cmp(big.NewInt(0)) == 0 {
+		// Point at inf
+		return true
 	}
 
 	// y² = x³ - 3x + b

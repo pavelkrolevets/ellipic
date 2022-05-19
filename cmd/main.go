@@ -18,8 +18,9 @@ import (
 func main() {
 	// Tiny EC play
 	X, Y := new(big.Int), new(big.Int)
-	for i := 0; i < 24; i++ {
-		X, Y = nist.TinyEc.AddPointsGeneric(nist.TinyEc.Gx, nist.TinyEc.Gy, X, Y)
+	for i := big.NewInt(0); i.Cmp(big.NewInt(24)) == -1 ; i.Add(i, big.NewInt(1)) {
+		log.Printf("K %d \n", i)
+		X, Y = nist.TinyEc.ScalarBaseMult(i)
 		log.Printf("Point %d, (%d, %d) \n", i, X.Uint64(), Y.Uint64())
 	}
 	log.Println(nist.Secp256k1.IsOnCurveGeneric(nist.Secp256k1.Gx, nist.Secp256k1.Gy))
