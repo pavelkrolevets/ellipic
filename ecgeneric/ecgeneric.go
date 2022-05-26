@@ -18,6 +18,11 @@ type CurveParams struct {
 	Name    string   // the canonical name of the curve
 }
 
+type Point struct {
+	x *big.Int
+	y *big.Int
+}
+
 func (curve *CurveParams) ScalarBaseMult(k *big.Int) (*big.Int, *big.Int) {
 	return curve.ScalarMultGeneric(curve.Gx, curve.Gy, k)
 }
@@ -156,9 +161,8 @@ func (curve *CurveParams) DoublePointsGeneric(x1, y1 *big.Int) (*big.Int, *big.I
 	return x3, y3
 }
 
-// polynomial returns x³ - 3x + b.
-// PK polynomial returns x³ + ax + b.
-func (curve *CurveParams) polynomialGeneric(x *big.Int) *big.Int {
+// polynomial returns x³ + ax + b.
+func (curve *CurveParams) PolynomialGeneric(x *big.Int) *big.Int {
 	x3 := new(big.Int).Mul(x, x)
 	x3.Mul(x3, x)
 
@@ -188,7 +192,7 @@ func (curve *CurveParams) IsOnCurveGeneric(x, y *big.Int) bool {
 	y2 := new(big.Int).Mul(y, y)
 	y2.Mod(y2, curve.P)
 
-	return curve.polynomialGeneric(x).Cmp(y2) == 0
+	return curve.PolynomialGeneric(x).Cmp(y2) == 0
 }
 
 // GenerateKey returns a public/private key pair. The private key is
@@ -262,3 +266,22 @@ func BigFromHex(s string) *big.Int {
 func BigFromDecimal(s string) *big.Int {
 	return bigFromDecimal(s)
 }
+
+// func (curve *CurveParams) PointsForX (x *big.Int) (points []Point) {
+// 	x3 := new(big.Int).Mul(x, x)
+// 	x3.Mul(x3, x)
+
+// 	aX := new(big.Int).Mul(curve.A, x)
+
+// 	x3.Add(x3, aX)
+// 	x3.Add(x3, curve.B)
+// 	x3.Mod(x3, curve.P)
+	
+// 	y0 := new(big.Int).ModSqrt(x3, curve.N)
+// 	if y0.Cmp(big.NewInt(0)) == 0 {
+// 		log.Fatal("No Y for X at the curve")
+// 	}
+// 	for i := new(big.Int).Sub(curve.P, y0); i.Cmp(curve.P) < 0; i.Add(i, big.NewInt(1)) {
+// 		points = append(points, Point{x: x, y: i})
+// 	}
+// }

@@ -45,19 +45,27 @@ func main() {
 	log.Println("GOST Signature verifyed ", verify)
 
 	// SECP256k1 signature check
-	m = []byte("Hello signature!")
-	hash = sha3.New256()
-	hash.Write(m)
-	fmt.Println("Hash of the message ", hex.EncodeToString(hash.Sum(nil)))
-	priv_, pubX, pubY, err := ecgeneric.GenerateKey(nist.Secp256k1, rand.Reader)
+	// m = []byte("Hello signature!")
+	// hash = sha3.New256()
+	// hash.Write(m)
+	// fmt.Println("Hash of the message ", hex.EncodeToString(hash.Sum(nil)))
+
+	// priv_, pubX, pubY, err := ecgeneric.GenerateKey(nist.Secp256k1, rand.Reader)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	hash_, _ := hex.DecodeString("e1c6dc35ff36f4488f4a3e545879173ffeec17cb7d1e2719020395aa22b2fa49")
+	priv_ := ecgeneric.BigFromHex("52edb68fe48aff9b5c071f076285c53ac5b1a3501139bb2cb2922b7f3923d23e")
+	pubX_, pubY_ := nist.Secp256k1.ScalarBaseMult(priv_)
+	log.Printf("Public key point pubX, pubY (%s, %s) \n", pubX_, pubY_)
+	r_, s_, err := nist.Sign(priv_, hash_, &nist.Secp256k1, rand.Reader)
 	if err != nil {
 		log.Fatal(err)
 	}
-	r, s, err = nist.Sign(new(big.Int).SetBytes(priv_), hash.Sum(nil), &nist.Secp256k1, rand.Reader)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Printf("r, s signature params (%s, %s) \n", fmt.Sprintf("%x", r), fmt.Sprintf("%x", s))
-	verify, _ = nist.Verify(hash.Sum(nil), r, s, pubX, pubY)
+	log.Printf("r, s (%s, %s) \n",  r_, s_)
+	verify, _ = nist.Verify(hash.Sum(nil), r_, s_, pubX_, pubY_)
 	log.Println("Signature verifyed ", verify)
+
+	ecRecX, ecRecY := nist.Ecrecover(hash_, r_, s_, pubX_, pubY_)
+	log.Printf("x, y recovered (%s, %s) \n", fmt.Sprintf("%x", ecRecX), fmt.Sprintf("%x", ecRecY))
 }
