@@ -41,28 +41,28 @@ func Hash(m []byte) ([32]byte) {
 
 func Sign(private_key *big.Int, m []byte, curve *ecgeneric.CurveParams, rand io.Reader) (r *big.Int, s *big.Int, err error) {
 	hash := new(big.Int).SetBytes(m[:])
-	// N := curve.N
-	// bitSize := N.BitLen()
-	// byteLen := (bitSize + 7) / 8
-	// k := make([]byte, byteLen)
+	N := curve.N
+	bitSize := N.BitLen()
+	byteLen := (bitSize + 7) / 8
+	k := make([]byte, byteLen)
 	x := new(big.Int)
 	r, s = new(big.Int), new(big.Int)
 
 	for r.Cmp(big.NewInt(0))== 0 && s.Cmp(big.NewInt(0))== 0 {
-		// _, err := io.ReadFull(rand, k)
-		// if err != nil {
-		// 	return nil, nil, err
-		// }
-		k := ecgeneric.BigFromHex("3885464172bf896aa10d45494a84f9232907e94020a293eb96be83ff476fc5b2")
-		// if new(big.Int).SetBytes(k[:]).Cmp(curve.N) == 1 {
-		// 	continue
-		// }
-		if k.Cmp(curve.N) > 0 {
+		_, err := io.ReadFull(rand, k)
+		if err != nil {
+			return nil, nil, err
+		}
+		// k := ecgeneric.BigFromHex("3885464172bf896aa10d45494a84f9232907e94020a293eb96be83ff476fc5b2")
+		if new(big.Int).SetBytes(k[:]).Cmp(curve.N) == 1 {
+			continue
+		}
+		if new(big.Int).SetBytes(k[:]).Cmp(curve.N) > 0 {
 			log.Fatal("Random is greater then oreder")
 			continue
 		}
-		kModInv := new(big.Int).ModInverse(k, curve.N)
-		x, _= curve.ScalarBaseMult(k)
+		kModInv := new(big.Int).ModInverse(new(big.Int).SetBytes(k[:]), curve.N)
+		x, _= curve.ScalarBaseMult(new(big.Int).SetBytes(k[:]))
 		r.Set(x.Mod(x, curve.N))
 		s.Mul(r, private_key)
 		s.Add(hash, s)
