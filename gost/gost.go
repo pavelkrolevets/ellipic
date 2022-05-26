@@ -38,7 +38,7 @@ var	GostEx2 = ecgeneric.CurveParams{
 }
 
 // gost - 3410 - 12 - 512- paramSetA
-var	Gost341012512 = ecgeneric.CurveParams{
+var	Gost341012512paramSetA = ecgeneric.CurveParams{
 	P:      ecgeneric.BigFromHex("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFDC7"),
 	N:      ecgeneric.BigFromHex("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF27E69532F48D89116FF22B8D4E0560609B4B38ABFAD2B85DCACDB1411F10B275"),
 	A:      ecgeneric.BigFromHex("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFDC4"),
@@ -46,9 +46,20 @@ var	Gost341012512 = ecgeneric.CurveParams{
 	Gx:     ecgeneric.BigFromHex("3"),
 	Gy:     ecgeneric.BigFromHex("7503CFE87A836AE3A61B8816E25450E6CE5E1C93ACF1ABC1778064FDCBEFA921DF1626BE4FD036E93D75E6A50E3A41E98028FE5FC235F5B889A589CB5215F2A4"),
 	BitSize: 512,
-	Name:   "Gost341012512",
+	Name:   "Gost341012512paramSetA",
 }
 
+// gost - 3410 - 12 - 512- paramSetB
+var	Gost341012512paramSetB  = ecgeneric.CurveParams{
+	P:      ecgeneric.BigFromHex("8000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006F"),
+	N:      ecgeneric.BigFromHex("800000000000000000000000000000000000000000000000000000000000000149A1EC142565A545ACFDB77BD9D40CFA8B996712101BEA0EC6346C54374F25BD"),
+	A:      ecgeneric.BigFromHex("8000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006C"),
+	B:      ecgeneric.BigFromHex("687D1B459DC841457E3E06CF6F5E2517B97C7D614AF138BCBF85DC806C4B289F3E965D2DB1416D217F8B276FAD1AB69C50F78BEE1FA3106EFB8CCBC7C5140116"),
+	Gx:     ecgeneric.BigFromHex("2"),
+	Gy:     ecgeneric.BigFromHex("1A8F7EDA389B094C2C071E3647A8940F3C123B697578C213BE6DD9E6C8EC7335DCB228FD1EDF4A39152CBCAAF8C0398828041055F94CEEEC7E21340780FE41BD"),
+	BitSize: 512,
+	Name:   "Gost341012512paramSetB",
+}
 
 func Hash(m []byte) ([32]byte) {
 	b := sha256.Sum256(m)
@@ -111,16 +122,10 @@ func Verify(m []byte, r, s, pubX, pubY *big.Int, curve *ecgeneric.CurveParams) (
 
 func Ecrecover(m []byte, r, s, pubX, pubY *big.Int, curve *ecgeneric.CurveParams) (*big.Int, *big.Int) {
 	z := new(big.Int).SetBytes(m[:])
-
 	var Rx,Ry, w, u1, u2 = new(big.Int), new(big.Int), new(big.Int), new(big.Int), new(big.Int)
-	if r.Cmp(new(big.Int).Sub(curve.P, curve.N)) < 0 {
-		log.Println("Two points")
-	}
 	x3 := new(big.Int).Mul(r, r)
 	x3.Mul(x3, r)
-
 	aX := new(big.Int).Mul(curve.A, r)
-
 	x3.Add(x3, aX)
 	x3.Add(x3, curve.B)
 	x3.Mod(x3, curve.P)
@@ -141,9 +146,11 @@ func Ecrecover(m []byte, r, s, pubX, pubY *big.Int, curve *ecgeneric.CurveParams
 	Rx.Set(r)
 	Ry.Set(y0)
 
-	log.Printf("Points Rx, Ry, Ry1 (%s,%s,%s) \n", Rx, Ry, y1)
-	if !curve.IsOnCurveGeneric(Rx, Ry) {
-		log.Fatal("Rx, Ry not on curve")
+	if !curve.IsOnCurveGeneric(r, y0) {
+		log.Fatal("r, y0 not on curve")
+	}
+	if !curve.IsOnCurveGeneric(r, y1) {
+		log.Fatal("r, y1 not on curve")
 	}
 	
 	w.ModInverse(r, curve.N)
@@ -155,21 +162,16 @@ func Ecrecover(m []byte, r, s, pubX, pubY *big.Int, curve *ecgeneric.CurveParams
 	u2.Neg(u2)
 	u2.Mod(u2, curve.N)
 
-	log.Printf("u1, u2 (%s, %s) \n", u1, u2)
-
 	u1Gx, u1Gy := curve.ScalarBaseMult(u1)
 	u2Rx, u2Ry := curve.ScalarMultGeneric(Rx, Ry, u2)
 
 	Qx, Qy := curve.AddPointsGeneric(u1Gx, u1Gy, u2Rx, u2Ry)
-	log.Printf("Qx, Qy (%s, %s) \n", Qx, Qy)
 	if Qx.Cmp(pubX) == 0 && Qy.Cmp(pubY) == 0 {
 			return Qx, Qy
 		} 
 			
 	u2Rx_, u2Ry_ := curve.ScalarMultGeneric(Rx, y1, u2)
-
 	Qx, Qy = curve.AddPointsGeneric(u1Gx, u1Gy, u2Rx_, u2Ry_)
-	log.Printf("Qx, Qy (%s, %s) \n", Qx, Qy)
 	if Qx.Cmp(pubX) == 0 && Qy.Cmp(pubY) == 0 {
 			return Qx, Qy
 		} else {

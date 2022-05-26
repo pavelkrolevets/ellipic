@@ -16,6 +16,7 @@ import (
 
 
 func main() {
+	
 	/////////
 	// Tiny EC play
 	/////////
@@ -36,20 +37,21 @@ func main() {
 	pubX, pubY = nist.Secp256k1.ScalarBaseMult(priv)
 	log.Printf("Point %d, (%s, %s) \n", 2, fmt.Sprintf("%x", pubX), fmt.Sprintf("%x", pubY))
 	
+	////////	
 	// Gost 3412
-
+	////////
 	priv = ecgeneric.BigFromHex("BA6048AADAE241BA40936D47756D7C93091A0E8514669700EE7508E508E102072E8123B2200A0563322DAD2827E2714A2636B7BFD18AADFC62967821FA18DD4")
-	X, Y = gost.Gost341012512.ScalarBaseMult(priv)
+	X, Y = gost.Gost341012512paramSetB.ScalarBaseMult(priv)
 	log.Printf("Point PUBLIC(%s, %s) \n", X, Y)
 	m := []byte("Hello signature!")
 	hash := sha3.New256()
 	hash.Write(m)
 	fmt.Println("Hash of the message ", hex.EncodeToString(hash.Sum(nil)))
-	r, s, _ := gost.Sign(priv, hash.Sum(nil), &gost.Gost341012512, rand.Reader)
+	r, s, _ := gost.Sign(priv, hash.Sum(nil), &gost.Gost341012512paramSetB, rand.Reader)
 	log.Printf("GOST r, s signature params (%s, %s) \n", r, s)
-	verify, _ := gost.Verify(hash.Sum(nil), r, s, X, Y, &gost.Gost341012512)
+	verify, _ := gost.Verify(hash.Sum(nil), r, s, X, Y, &gost.Gost341012512paramSetB)
 	log.Println("GOST Signature verifyed ", verify)
-	ecRecX, ecRecY := gost.Ecrecover(hash.Sum(nil), r, s, X, Y, &gost.Gost341012512)
+	ecRecX, ecRecY := gost.Ecrecover(hash.Sum(nil), r, s, X, Y, &gost.Gost341012512paramSetB)
 	log.Printf("Gost x, y recovered (%s, %s) \n", fmt.Sprintf("%x", ecRecX), fmt.Sprintf("%x", ecRecY))
 	
 	// SECP256k1 signature check
