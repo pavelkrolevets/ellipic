@@ -1,4 +1,3 @@
-### Elliptic curve digital signature implementation for GOST and NIST curves
+### ECDSA and GOST including public key recovery
 
-Implemented generic non-conatant time EC computations for SECP256k1 and GOST curves.
-Generic means that computations are without any transformation speedups and can be used for any feasible Weistrass form EC.
+Implementaion generic non-conatant time ECDSA for SECP256k1 and GOST 34.11-2018 for Gost341012512paramSetA Gost341012512paramSetB.
