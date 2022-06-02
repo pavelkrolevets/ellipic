@@ -6,6 +6,23 @@ import (
 	"math/big"
 )
 
+// A Curve represents a short-form Weierstrass curve.
+type Curve interface {
+	// Params returns the parameters for the curve.
+	Params() *CurveParams
+	// IsOnCurve reports whether the given (x,y) lies on the curve.
+	IsOnCurveGeneric(x, y *big.Int) bool
+	// Add returns the sum of (x1,y1) and (x2,y2)
+	AddPointsGeneric(x1, y1, x2, y2 *big.Int) (x, y *big.Int)
+	// Double returns 2*(x,y)
+	DoublePointsGeneric(x1, y1 *big.Int) (x, y *big.Int)
+	// ScalarMult returns k*(Bx,By) where k is a number in big-endian form.
+	ScalarMultGeneric(x1, y1, k *big.Int) (x, y *big.Int)
+	// ScalarBaseMult returns k*G, where G is the base point of the group
+	// and k is an integer in big-endian form.
+	ScalarBaseMult(k *big.Int) (x, y *big.Int)
+}
+
 // CurveParams contains the parameters of an elliptic curve and also provides
 // a generic, non-constant time implementation of Curve.
 type CurveParams struct {
@@ -18,9 +35,8 @@ type CurveParams struct {
 	Name    string   // the canonical name of the curve
 }
 
-type Point struct {
-	x *big.Int
-	y *big.Int
+func (curve *CurveParams) Params() *CurveParams {
+	return curve
 }
 
 func (curve *CurveParams) ScalarBaseMult(k *big.Int) (*big.Int, *big.Int) {
@@ -266,22 +282,3 @@ func BigFromHex(s string) *big.Int {
 func BigFromDecimal(s string) *big.Int {
 	return bigFromDecimal(s)
 }
-
-// func (curve *CurveParams) PointsForX (x *big.Int) (points []Point) {
-// 	x3 := new(big.Int).Mul(x, x)
-// 	x3.Mul(x3, x)
-
-// 	aX := new(big.Int).Mul(curve.A, x)
-
-// 	x3.Add(x3, aX)
-// 	x3.Add(x3, curve.B)
-// 	x3.Mod(x3, curve.P)
-	
-// 	y0 := new(big.Int).ModSqrt(x3, curve.N)
-// 	if y0.Cmp(big.NewInt(0)) == 0 {
-// 		log.Fatal("No Y for X at the curve")
-// 	}
-// 	for i := new(big.Int).Sub(curve.P, y0); i.Cmp(curve.P) < 0; i.Add(i, big.NewInt(1)) {
-// 		points = append(points, Point{x: x, y: i})
-// 	}
-// }

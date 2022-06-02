@@ -7,6 +7,8 @@ import (
 	"math/big"
 
 	"github.com/pavelkrolevets/ecdsa/ecgeneric"
+	"golang.org/x/crypto/cryptobyte"
+	"golang.org/x/crypto/cryptobyte/asn1"
 )
 
 // Curve params y^2 = x^3 + a*x + b (a=0, b=7), h = 1, p=17
@@ -153,4 +155,19 @@ func Ecrecover(m []byte, r, s, pubX, pubY *big.Int) (*big.Int, *big.Int) {
 			return nil, nil
 		}
 		
+}
+
+// returns the ASN.1 encoded signature.
+func SignASN1(private_key *big.Int, hash []byte, curve *ecgeneric.CurveParams, rand io.Reader) ([]byte, error) {
+	r, s, err := Sign(private_key, hash, curve, rand)
+	if err != nil {
+		return nil, err
+	}
+
+	var b cryptobyte.Builder
+	b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+		b.AddASN1BigInt(r)
+		b.AddASN1BigInt(s)
+	})
+	return b.Bytes()
 }

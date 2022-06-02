@@ -11,16 +11,50 @@ import (
 	"github.com/pavelkrolevets/ecdsa/gost"
 	"github.com/pavelkrolevets/ecdsa/nist"
 	"golang.org/x/crypto/sha3"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/sha256"
 )
 
 
 
 func main() {
-	
 	/////////
 	// Tiny EC play
 	/////////
+	TinyEC()
 
+	////////	
+	// Gost 3412
+	////////
+	Gost3412()
+
+	////////
+	// SECP256k1 signature check
+	////////
+	Secp256k1()
+}
+
+func StandartECDSA() {
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	msg := "hello, world"
+	hash := sha256.Sum256([]byte(msg))
+
+	sig, err := ecdsa.SignASN1(rand.Reader, privateKey, hash[:])
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("signature: %x\n", sig)
+
+	valid := ecdsa.VerifyASN1(&privateKey.PublicKey, hash[:], sig)
+	fmt.Println("signature verified:", valid)
+}
+
+func TinyEC(){
 	X, Y := new(big.Int), new(big.Int)
 	for i := big.NewInt(0); i.Cmp(big.NewInt(24)) == -1 ; i.Add(i, big.NewInt(1)) {
 		log.Printf("K %d \n", i)
@@ -28,20 +62,11 @@ func main() {
 		log.Printf("Point %d, (%d, %d) \n", i, X.Uint64(), Y.Uint64())
 	}
 	log.Println(nist.Secp256k1.IsOnCurveGeneric(nist.Secp256k1.Gx, nist.Secp256k1.Gy))
+}
 
-	////////
-	// Secp256k1 check
-	///////
-	pubX, pubY := new(big.Int), new(big.Int)
-	priv := ecgeneric.BigFromHex("52edb68fe48aff9b5c071f076285c53ac5b1a3501139bb2cb2922b7f3923d23e")
-	pubX, pubY = nist.Secp256k1.ScalarBaseMult(priv)
-	log.Printf("Point %d, (%s, %s) \n", 2, fmt.Sprintf("%x", pubX), fmt.Sprintf("%x", pubY))
-	
-	////////	
-	// Gost 3412
-	////////
-	priv = ecgeneric.BigFromHex("BA6048AADAE241BA40936D47756D7C93091A0E8514669700EE7508E508E102072E8123B2200A0563322DAD2827E2714A2636B7BFD18AADFC62967821FA18DD4")
-	X, Y = gost.Gost341012512paramSetB.ScalarBaseMult(priv)
+func Gost3412(){
+	priv := ecgeneric.BigFromHex("BA6048AADAE241BA40936D47756D7C93091A0E8514669700EE7508E508E102072E8123B2200A0563322DAD2827E2714A2636B7BFD18AADFC62967821FA18DD4")
+	X, Y := gost.Gost341012512paramSetB.ScalarBaseMult(priv)
 	log.Printf("Point PUBLIC(%s, %s) \n", X, Y)
 	m := []byte("Hello signature!")
 	hash := sha3.New256()
@@ -53,11 +78,11 @@ func main() {
 	log.Println("GOST Signature verifyed ", verify)
 	ecRecX, ecRecY := gost.Ecrecover(hash.Sum(nil), r, s, X, Y, &gost.Gost341012512paramSetB)
 	log.Printf("Gost x, y recovered (%s, %s) \n", fmt.Sprintf("%x", ecRecX), fmt.Sprintf("%x", ecRecY))
-	
-	// SECP256k1 signature check
+}
 
-	m = []byte("Hello signature!")
-	hash = sha3.New256()
+func Secp256k1(){
+	m := []byte("Hello signature!")
+	hash := sha3.New256()
 	hash.Write(m)
 	fmt.Println("Hash of the message ", hex.EncodeToString(hash.Sum(nil)))
 
@@ -69,9 +94,9 @@ func main() {
 		log.Fatal(err)
 	}
 	log.Printf("r, s (%s, %s) \n",  r_, s_)
-	verify, _ = nist.Verify(hash.Sum(nil), r_, s_, pubX_, pubY_)
+	verify, _ := nist.Verify(hash.Sum(nil), r_, s_, pubX_, pubY_)
 	log.Println("Signature verifyed ", verify)
 
-	ecRecX, ecRecY = nist.Ecrecover(hash.Sum(nil), r_, s_, pubX_, pubY_)
+	ecRecX, ecRecY := nist.Ecrecover(hash.Sum(nil), r_, s_, pubX_, pubY_)
 	log.Printf("x, y recovered (%s, %s) \n", fmt.Sprintf("%x", ecRecX), fmt.Sprintf("%x", ecRecY))
 }

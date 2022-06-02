@@ -1,7 +1,9 @@
 # github.com/bwesterb/go-ristretto v1.2.1
 ## explicit; go 1.13
-# golang.org/x/crypto v0.0.0-20220507011949-2cf3adece122
+# golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 ## explicit; go 1.17
+golang.org/x/crypto/cryptobyte
+golang.org/x/crypto/cryptobyte/asn1
 golang.org/x/crypto/sha3
 # golang.org/x/net v0.0.0-20220425223048-2871e0cb64e4
 ## explicit; go 1.17

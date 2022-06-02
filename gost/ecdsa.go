@@ -7,8 +7,21 @@ import (
 	"math/big"
 
 	"github.com/pavelkrolevets/ecdsa/ecgeneric"
+	"golang.org/x/crypto/cryptobyte"
+	"golang.org/x/crypto/cryptobyte/asn1"
 )
 
+// PrivateKey represents an ECDSA private key.
+type PrivateKey struct {
+	PublicKey
+	D *big.Int
+}
+
+// PublicKey represents an ECDSA public key.
+type PublicKey struct {
+	ecgeneric.Curve
+	X, Y *big.Int
+}
 // gost - 3410 - 2018 - 256
 var	GostEx1 = ecgeneric.CurveParams{
 	// GOST простое число, p>3
@@ -178,4 +191,19 @@ func Ecrecover(m []byte, r, s, pubX, pubY *big.Int, curve *ecgeneric.CurveParams
 		} else {
 			return nil, nil
 		}		
+}
+
+// returns the ASN.1 encoded signature.
+func SignASN1(private_key *big.Int, hash []byte, curve *ecgeneric.CurveParams, rand io.Reader) ([]byte, error) {
+	r, s, err := Sign(private_key, hash, curve, rand)
+	if err != nil {
+		return nil, err
+	}
+
+	var b cryptobyte.Builder
+	b.AddASN1(asn1.SEQUENCE, func(b *cryptobyte.Builder) {
+		b.AddASN1BigInt(r)
+		b.AddASN1BigInt(s)
+	})
+	return b.Bytes()
 }
