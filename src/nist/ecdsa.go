@@ -6,7 +6,7 @@ import (
 	"log"
 	"math/big"
 
-	"github.com/pavelkrolevets/ecdsa/ecgeneric"
+	"github.com/pavelkrolevets/ecdsa/src/ecgeneric"
 	"golang.org/x/crypto/cryptobyte"
 	"golang.org/x/crypto/cryptobyte/asn1"
 )
