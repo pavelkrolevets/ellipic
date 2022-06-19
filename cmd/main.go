@@ -7,9 +7,9 @@ import (
 	"log"
 	"math/big"
 
-	"github.com/pavelkrolevets/ecdsa/src/ecgeneric"
-	"github.com/pavelkrolevets/ecdsa/src/ecgeneric/gost"
-	"github.com/pavelkrolevets/ecdsa/src/ecgeneric/nist"
+	"github.com/pavelkrolevets/gost-elliptic/src/ecgeneric"
+	"github.com/pavelkrolevets/gost-elliptic/src/ecgeneric/gost"
+	"github.com/pavelkrolevets/gost-elliptic/src/ecgeneric/nist"
 	"golang.org/x/crypto/sha3"
 	"crypto/ecdsa"
 	"crypto/elliptic"
