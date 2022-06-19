@@ -8,8 +8,8 @@ import (
 	"math/big"
 
 	"github.com/pavelkrolevets/ecdsa/src/ecgeneric"
-	"github.com/pavelkrolevets/ecdsa/src/gost"
-	"github.com/pavelkrolevets/ecdsa/src/nist"
+	"github.com/pavelkrolevets/ecdsa/src/ecgeneric/gost"
+	"github.com/pavelkrolevets/ecdsa/src/ecgeneric/nist"
 	"golang.org/x/crypto/sha3"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -36,7 +36,7 @@ func main() {
 }
 
 func StandartECDSA() {
-	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	privateKey, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
 	if err != nil {
 		panic(err)
 	}
