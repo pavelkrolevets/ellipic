@@ -3,8 +3,18 @@ package ecstatic
 import (
 	"io"
 	"math/big"
-	"sync"
 )
+// PrivateKey represents an ECDSA private key.
+type PrivateKey struct {
+	PublicKey
+	D *big.Int
+}
+
+// PublicKey represents an ECDSA public key.
+type PublicKey struct {
+	Curve
+	X, Y *big.Int
+}
 
 // A Curve represents a short-form Weierstrass curve with a=-3.
 //
@@ -374,37 +384,6 @@ func UnmarshalCompressed(curve Curve, data []byte) (x, y *big.Int) {
 		return nil, nil
 	}
 	return
-}
-
-var initonce sync.Once
-var p512paramSetA *CurveParams
-
-func initAll() {
-	initP512paramSetA()
-}
-
-func initP512paramSetA() {
-	// See FIPS 186-3, section D.2.5
-	p512paramSetA = &CurveParams{Name: "P-GOST512paramSetA"}
-	p512paramSetA.P, _ = new(big.Int).SetString("6864797660130609714981900799081393217269435300143305409394463459185543183397656052122559640661454554977296311391480858037121987999716643812574028291115057151", 10)
-	p512paramSetA.N, _ = new(big.Int).SetString("6864797660130609714981900799081393217269435300143305409394463459185543183397655394245057746333217197532963996371363321113864768612440380340372808892707005449", 10)
-	p512paramSetA.B, _ = new(big.Int).SetString("051953eb9618e1c9a1f929a21a0b68540eea2da725b99b315f3b8b489918ef109e156193951ec7e937b1652c0bd3bb1bf073573df883d2c34f1ef451fd46b503f00", 16)
-	p512paramSetA.Gx, _ = new(big.Int).SetString("c6858e06b70404e9cd9e3ecb662395b4429c648139053fb521f828af606b4d3dbaa14b5e77efe75928fe1dc127a2ffa8de3348b3c1856a429bf97e7e31c2e5bd66", 16)
-	p512paramSetA.Gy, _ = new(big.Int).SetString("11839296a789a3bc0045c8a5fb42c7d1bd998f54449579b446817afbd17273e662c97ee72995ef42640c550b9013fad0761353c7086a272c24088be94769fd16650", 16)
-	p512paramSetA.BitSize = 512
-}
-
-
-// P521 returns a Curve which implements NIST P-521 (FIPS 186-3, section D.2.5),
-// also known as secp521r1. The CurveParams.Name of this Curve is "P-521".
-//
-// Multiple invocations of this function will return the same value, so it can
-// be used for equality checks and switch statements.
-//
-// The cryptographic operations do not use constant-time algorithms.
-func P512paramSetA() Curve {
-	initonce.Do(initAll)
-	return p512paramSetA
 }
 
 func bigFromDecimal(s string) *big.Int {
