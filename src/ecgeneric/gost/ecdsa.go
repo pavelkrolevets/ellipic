@@ -75,6 +75,18 @@ var	Gost341012512paramSetB  = ecgeneric.CurveParams{
 	Name:   "Gost341012512paramSetB",
 }
 
+// gost - 3410 - 12 - 512- paramSetB
+var	Gost34102001paramSetA  = ecgeneric.CurveParams{
+	P:      ecgeneric.BigFromHex("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd97"),
+	N:      ecgeneric.BigFromHex("ffffffffffffffffffffffffffffffff6c611070995ad10045841b09b761b893"),
+	A:      ecgeneric.BigFromHex("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd94"),
+	B:      ecgeneric.BigFromHex("00000000000000000000000000000000000000000000000000000000000000a6"),
+	Gx:     ecgeneric.BigFromHex("0000000000000000000000000000000000000000000000000000000000000001"),
+	Gy:     ecgeneric.BigFromHex("8d91e471e0989cda27df505a453f2b7635294f2ddf23e3b122acc99c9e9f1e14"),
+	BitSize: 256,
+	Name:   "id-gostR3410-2001-CryptoPro-A-ParamSet",
+}
+
 func Hash(m []byte) ([32]byte) {
 	b := sha256.Sum256(m)
 	return b
@@ -194,7 +206,7 @@ func Ecrecover(m []byte, r, s, pubX, pubY *big.Int, curve *ecgeneric.CurveParams
 }
 
 func EcrecoverJ(m []byte, r, s, pubX, pubY *big.Int, curve *ecgeneric.CurveParams) (*big.Int, *big.Int) {
-	z := new(big.Int).SetBytes(m[:])
+	z := hashToInt(m, curve)
 	var Rx,Ry, w, u1, u2 = new(big.Int), new(big.Int), new(big.Int), new(big.Int), new(big.Int)
 	x3 := new(big.Int).Mul(r, r)
 	x3.Mul(x3, r)
@@ -207,24 +219,10 @@ func EcrecoverJ(m []byte, r, s, pubX, pubY *big.Int, curve *ecgeneric.CurveParam
 	if y0.Cmp(big.NewInt(0)) == 0 {
 		log.Fatal("No Y for X at the curve")
 	}
-
-	if (!curve.IsOnCurveJ(r, y0)){
-		log.Fatal("r, y0 not on curve")
-	}
 	y1 := new(big.Int).Sub(curve.P, y0)
-	if (!curve.IsOnCurveJ(r, y1)){
-		log.Fatal("r, y1 not on curve")
-	}
 	
 	Rx.Set(r)
 	Ry.Set(y0)
-
-	if !curve.IsOnCurveJ(r, y0) {
-		log.Fatal("r, y0 not on curve")
-	}
-	if !curve.IsOnCurveJ(r, y1) {
-		log.Fatal("r, y1 not on curve")
-	}
 	
 	w.ModInverse(r, curve.N)
 	
@@ -269,7 +267,7 @@ func SignASN1(private_key *big.Int, hash []byte, curve *ecgeneric.CurveParams, r
 
 
 func SignJ(private_key *big.Int, m []byte, curve *ecgeneric.CurveParams, rand io.Reader) (r *big.Int, s *big.Int, err error) {
-	hash := new(big.Int).SetBytes(m[:])
+	hash := hashToInt(m, curve)
 	N := curve.N
 	bitSize := N.BitLen()
 	byteLen := (bitSize + 7) / 8
@@ -298,7 +296,7 @@ func SignJ(private_key *big.Int, m []byte, curve *ecgeneric.CurveParams, rand io
 }
 
 func VerifyJ(m []byte, r, s, pubX, pubY *big.Int, curve *ecgeneric.CurveParams) (bool, error) {
-	hash := new(big.Int).SetBytes(m[:])
+	hash := hashToInt(m, curve)
 	e :=  new(big.Int).Mod(hash, curve.N)
 	if e.Cmp(big.NewInt(0)) == 0 {
 		e.Set(big.NewInt(1))
@@ -321,3 +319,22 @@ func VerifyJ(m []byte, r, s, pubX, pubY *big.Int, curve *ecgeneric.CurveParams) 
 		return false, nil
 	}
 }
+
+// hashToInt converts a hash value to an integer. Per FIPS 186-4, Section 6.4,
+// we use the left-most bits of the hash to match the bit-length of the order of
+// the curve. This also performs Step 5 of SEC 1, Version 2.0, Section 4.1.3.
+func hashToInt(hash []byte, c ecgeneric.Curve) *big.Int {
+	orderBits := c.Params().N.BitLen()
+	orderBytes := (orderBits + 7) / 8
+	if len(hash) > orderBytes {
+		hash = hash[:orderBytes]
+	}
+
+	ret := new(big.Int).SetBytes(hash)
+	excess := len(hash)*8 - orderBits
+	if excess > 0 {
+		ret.Rsh(ret, uint(excess))
+	}
+	return ret
+}
+
