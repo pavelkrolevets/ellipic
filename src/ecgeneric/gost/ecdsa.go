@@ -207,3 +207,58 @@ func SignASN1(private_key *big.Int, hash []byte, curve *ecgeneric.CurveParams, r
 	})
 	return b.Bytes()
 }
+
+
+func SignJ(private_key *big.Int, m []byte, curve *ecgeneric.CurveParams, rand io.Reader) (r *big.Int, s *big.Int, err error) {
+	hash := new(big.Int).SetBytes(m[:])
+	N := curve.N
+	bitSize := N.BitLen()
+	byteLen := (bitSize + 7) / 8
+	k := make([]byte, byteLen)
+	r, s = new(big.Int), new(big.Int)
+
+	for r.Cmp(big.NewInt(0))== 0 && s.Cmp(big.NewInt(0))== 0 {
+		e :=  new(big.Int).Mod(hash, curve.N)
+		if e.Cmp(big.NewInt(0)) == 0 {
+			e.Set(big.NewInt(1))
+		}
+		_, err := io.ReadFull(rand, k)
+		if err != nil {
+			return nil, nil, err
+		}
+		x, _ := curve.ScalarBaseMultJ(k)
+		k := new(big.Int).SetBytes(k[:])
+		if k.Cmp(curve.N) == 1 {
+			continue
+		}
+		r.Set(x.Mod(x, curve.N))
+		s.Add(new(big.Int).Mul(r, private_key), new(big.Int).Mul(k, e))
+		s.Mod(s, curve.N)
+	}
+	return
+}
+
+func VerifyJ(m []byte, r, s, pubX, pubY *big.Int, curve *ecgeneric.CurveParams) (bool, error) {
+	hash := new(big.Int).SetBytes(m[:])
+	e :=  new(big.Int).Mod(hash, curve.N)
+	if e.Cmp(big.NewInt(0)) == 0 {
+		e.Set(big.NewInt(1))
+	}
+	var v, z1, z2 = new(big.Int), new(big.Int), new(big.Int)
+	
+	v.ModInverse(e, curve.N)
+	z1.Mul(s, v)
+	z1.Mod(z1, curve.N)
+	z2.Mul(r, v)
+	z2.Neg(z2)
+	z2.Mod(z2, curve.N)
+
+	z1gX, z1gY := curve.ScalarBaseMultJ(z1.Bytes())
+	u2mulPubX, u2mulPubY := curve.ScalarMultJ(pubX, pubY, z2.Bytes())
+	x, _ := curve.AddPointsGeneric(z1gX, z1gY, u2mulPubX, u2mulPubY)
+	if new(big.Int).Mod(r, curve.N).Cmp(new(big.Int).Mod(x, curve.N)) == 0 {
+		return true, nil
+	} else {
+		return false, nil
+	}
+}

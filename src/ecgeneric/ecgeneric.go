@@ -1,7 +1,6 @@
 package ecgeneric
 
 import (
-	"io"
 	"log"
 	"math/big"
 )
@@ -21,6 +20,7 @@ type Curve interface {
 	// ScalarBaseMult returns k*G, where G is the base point of the group
 	// and k is an integer in big-endian form.
 	ScalarBaseMult(k *big.Int) (x, y *big.Int)
+	ScalarBaseMultJ(k []byte) (x, y *big.Int)
 }
 
 // CurveParams contains the parameters of an elliptic curve and also provides
@@ -211,34 +211,6 @@ func (curve *CurveParams) IsOnCurveGeneric(x, y *big.Int) bool {
 	return curve.PolynomialGeneric(x).Cmp(y2) == 0
 }
 
-// GenerateKey returns a public/private key pair. The private key is
-// generated using the given reader, which must return random data.
-func GenerateKey(curve CurveParams, rand io.Reader) (priv []byte, pubX, pubY *big.Int, err error) {
-	N := curve.N
-	bitSize := N.BitLen()
-	byteLen := (bitSize + 7) / 8
-	priv = make([]byte, byteLen)
-
-	for pubX == nil {
-		_, err = io.ReadFull(rand, priv)
-		if err != nil {
-			return
-		}
-		// We have to mask off any excess bits in the case that the size of the
-		// underlying field is not a whole number of bytes.
-		priv[0] &= mask[bitSize%8]
-		// This is because, in tests, rand will return all zeros and we don't
-		// want to get the point at infinity and loop forever.
-		priv[1] ^= 0x42
-
-		// If the scalar is out of range, sample another random number.
-		if new(big.Int).SetBytes(priv).Cmp(N) >= 0 {
-			continue
-		}
-		pubX, pubY = curve.ScalarBaseMult(new(big.Int).SetBytes(priv))
-	}
-	return
-}
 
 func (curve *CurveParams) PointNeg(x, y *big.Int) (*big.Int, *big.Int) {
 	// """Returns -point."""
