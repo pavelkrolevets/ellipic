@@ -193,6 +193,65 @@ func Ecrecover(m []byte, r, s, pubX, pubY *big.Int, curve *ecgeneric.CurveParams
 		}		
 }
 
+func EcrecoverJ(m []byte, r, s, pubX, pubY *big.Int, curve *ecgeneric.CurveParams) (*big.Int, *big.Int) {
+	z := new(big.Int).SetBytes(m[:])
+	var Rx,Ry, w, u1, u2 = new(big.Int), new(big.Int), new(big.Int), new(big.Int), new(big.Int)
+	x3 := new(big.Int).Mul(r, r)
+	x3.Mul(x3, r)
+	aX := new(big.Int).Mul(curve.A, r)
+	x3.Add(x3, aX)
+	x3.Add(x3, curve.B)
+	x3.Mod(x3, curve.P)
+	
+	y0 := new(big.Int).ModSqrt(x3, curve.P)
+	if y0.Cmp(big.NewInt(0)) == 0 {
+		log.Fatal("No Y for X at the curve")
+	}
+
+	if (!curve.IsOnCurveJ(r, y0)){
+		log.Fatal("r, y0 not on curve")
+	}
+	y1 := new(big.Int).Sub(curve.P, y0)
+	if (!curve.IsOnCurveJ(r, y1)){
+		log.Fatal("r, y1 not on curve")
+	}
+	
+	Rx.Set(r)
+	Ry.Set(y0)
+
+	if !curve.IsOnCurveJ(r, y0) {
+		log.Fatal("r, y0 not on curve")
+	}
+	if !curve.IsOnCurveJ(r, y1) {
+		log.Fatal("r, y1 not on curve")
+	}
+	
+	w.ModInverse(r, curve.N)
+	
+	u1.Mul(s, w)
+	u1.Mod(u1, curve.N)
+
+	u2.Mul(z, w)
+	u2.Neg(u2)
+	u2.Mod(u2, curve.N)
+
+	u1Gx, u1Gy := curve.ScalarBaseMultJ(u1.Bytes())
+	u2Rx, u2Ry := curve.ScalarMultJ(Rx, Ry, u2.Bytes())
+
+	Qx, Qy := curve.Add(u1Gx, u1Gy, u2Rx, u2Ry)
+	if Qx.Cmp(pubX) == 0 && Qy.Cmp(pubY) == 0 {
+			return Qx, Qy
+		} 
+			
+	u2Rx_, u2Ry_ := curve.ScalarMultJ(Rx, y1, u2.Bytes())
+	Qx, Qy = curve.Add(u1Gx, u1Gy, u2Rx_, u2Ry_)
+	if Qx.Cmp(pubX) == 0 && Qy.Cmp(pubY) == 0 {
+			return Qx, Qy
+		} else {
+			return nil, nil
+		}		
+}
+
 // returns the ASN.1 encoded signature.
 func SignASN1(private_key *big.Int, hash []byte, curve *ecgeneric.CurveParams, rand io.Reader) ([]byte, error) {
 	r, s, err := Sign(private_key, hash, curve, rand)
@@ -255,7 +314,7 @@ func VerifyJ(m []byte, r, s, pubX, pubY *big.Int, curve *ecgeneric.CurveParams) 
 
 	z1gX, z1gY := curve.ScalarBaseMultJ(z1.Bytes())
 	u2mulPubX, u2mulPubY := curve.ScalarMultJ(pubX, pubY, z2.Bytes())
-	x, _ := curve.AddPointsGeneric(z1gX, z1gY, u2mulPubX, u2mulPubY)
+	x, _ := curve.Add(z1gX, z1gY, u2mulPubX, u2mulPubY)
 	if new(big.Int).Mod(r, curve.N).Cmp(new(big.Int).Mod(x, curve.N)) == 0 {
 		return true, nil
 	} else {
