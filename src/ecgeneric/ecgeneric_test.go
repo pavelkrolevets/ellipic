@@ -77,8 +77,8 @@ func Benchmark_gost_recover_Gost34102001paramSetA(b *testing.B) {
 	msg := hash.Sum(nil)
 
 	b.ResetTimer()
-	b.Run("gost_recover_generic", func(b *testing.B) {
-		for i := 0; i < 1000; i++ {
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
 			ecRecX, ecRecY := gost.Ecrecover(msg, r, s, X, Y, &gost.Gost34102001paramSetA)
 			require.Equal(b, ecRecX, X)
 			require.Equal(b, ecRecY, Y)
@@ -98,8 +98,8 @@ func Benchmark_gost_recover_j_Gost34102001paramSetA(b *testing.B) {
 	msg := hash.Sum(nil)
 
 	b.ResetTimer()
-	b.Run("gost_recover_Jacobian", func(b *testing.B) {
-		for i := 0; i < 1000; i++ {
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
 			ecRecX, ecRecY := gost.EcrecoverJ(msg, r, s, X, Y, &gost.Gost34102001paramSetA)
 			require.Equal(b, ecRecX, X)
 			require.Equal(b, ecRecY, Y)
@@ -169,11 +169,10 @@ func Benchmark_gost_sign_j_2001(b *testing.B) {
 	hash := sha3.New256()
 	hash.Write(m)
 	msg := hash.Sum(nil)
-
+	r, s, _ := gost.SignJ(priv, msg, &gost.Gost34102001paramSetA, rand.Reader)
 	b.ResetTimer()
 	b.Run("gost_sign", func(b *testing.B) {
 		for i := 0; i < 1000; i++ {
-			r, s, _ := gost.SignJ(priv, msg, &gost.Gost34102001paramSetA, rand.Reader)
 			verify, _ := gost.VerifyJ(msg, r, s, X, Y, &gost.Gost34102001paramSetA)
 			require.Equal(b, true, verify)
 		}
@@ -188,27 +187,25 @@ func Benchmark_secp256k1_sign(b *testing.B) {
 	priv_ := ecgeneric.BigFromHex("52edb68fe48aff9b5c071f076285c53ac5b1a3501139bb2cb2922b7f3923d23e")
 
 	b.ResetTimer()
-	b.Run("secp256k1_sign", func(b *testing.B) {
-		for i := 0; i < 1000; i++ {
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
 			_, _, _ = nist.Sign(priv_, msg, &nist.Secp256k1, rand.Reader)
-			
 		}
 	})
 	
 }
 func Benchmark_nist_sign(b *testing.B) {
-	privateKey, err := ecdsa.GenerateKey(elliptic.P224(), rand.Reader)
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		panic(err)
 	}
 
 	msg := "hello, world"
 	hash := sha256.Sum256([]byte(msg))
-
+	r, s, _ := ecdsa.Sign(rand.Reader, privateKey, hash[:])
 	b.ResetTimer()
 	b.Run("nist_sign_verify", func(b *testing.B) {
 		for i := 0; i < 1000; i++ {
-			r, s, _ := ecdsa.Sign(rand.Reader, privateKey, hash[:])
 			valid := ecdsa.Verify(&privateKey.PublicKey, hash[:], r, s)
 			require.Equal(b, true, valid)
 		}
@@ -223,11 +220,10 @@ func Benchmark_gost_sign_STD(b *testing.B) {
 
 	msg := "hello, world"
 	hash := sha256.Sum256([]byte(msg))
-
+	r, s, _ := gost.SignSTD(rand.Reader, privateKey, hash[:])
 	b.ResetTimer()
-	b.Run("gost_sign_verify", func(b *testing.B) {
-		for i := 0; i < 1000; i++ {
-			r, s, _ := gost.SignSTD(rand.Reader, privateKey, hash[:])
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
 			valid := gost.VerifySTD(&privateKey.PublicKey, hash[:], r, s)
 			require.Equal(b, true, valid)
 		}
@@ -248,8 +244,8 @@ func Benchmark_gost_recover_STD(b *testing.B) {
 	require.Equal(b, true, valid)
 
 	b.ResetTimer()
-	b.Run("gost_recover_STD", func(b *testing.B) {
-		for i := 0; i < 1000; i++ {
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
 			ecRecX, ecRecY := gost.EcrecoverSTD(&privateKey.PublicKey, &gost.Gost34102001paramSetA, hash[:], r, s)
 			require.Equal(b, ecRecX, privateKey.PublicKey.X)
 			require.Equal(b, ecRecY, privateKey.PublicKey.Y)
@@ -258,19 +254,17 @@ func Benchmark_gost_recover_STD(b *testing.B) {
 }
 
 func Benchmark_nist_ecrecover(b *testing.B) {
-	curve := elliptic.P224()
+	curve := elliptic.P256()
 	privateKey, err := ecdsa.GenerateKey(curve, rand.Reader)
 	if err != nil {
 		panic(err)
 	}
-	b.Log("Pub Key X ", privateKey.PublicKey.X.String())
-	b.Log("Pub Key Y ", privateKey.PublicKey.Y.String())
 	msg := "hello, world"
 	hash := sha256.Sum256([]byte(msg))
 	r, s, _ := ecdsa.Sign(rand.Reader, privateKey, hash[:])
 	b.ResetTimer()
-	b.Run("nist_sign_recover", func(b *testing.B) {
-		for i := 0; i < 1000; i++ {
+	b.RunParallel(func(pb *testing.PB)  {
+		for pb.Next() {
 			ecRecX, ecRecY := nist.EcrecoverSTD(&privateKey.PublicKey, curve, hash[:], r, s)
 			require.Equal(b, ecRecX, privateKey.PublicKey.X)
 			require.Equal(b, ecRecY, privateKey.PublicKey.Y)	
