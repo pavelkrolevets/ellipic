@@ -125,6 +125,25 @@ func Benchmark_gost_sign(b *testing.B) {
 	})
 }
 
+func Benchmark_gost_sign_2001(b *testing.B) {
+	priv := ecgeneric.BigFromHex("0B293BE050D0082BDAE785631A6BAB68F35B42786D6DDA56AFAF169891040F77")
+	X, Y := gost.Gost34102001paramSetA.ScalarBaseMult(priv)
+	m := []byte("Hello signature!")
+	hash := sha3.New256()
+	hash.Write(m)
+	msg := hash.Sum(nil)
+
+	b.ResetTimer()
+	b.Run("gost_sign", func(b *testing.B) {
+		for i := 0; i < 1000; i++ {
+			r, s, _ := gost.Sign(priv, msg, &gost.Gost34102001paramSetA, rand.Reader)
+			verify, _ := gost.Verify(msg, r, s, X, Y, &gost.Gost34102001paramSetA)
+			require.Equal(b, true, verify)
+		}
+	})
+}
+
+
 func Benchmark_gost_sign_j(b *testing.B) {
 	priv := ecgeneric.BigFromHex("BA6048AADAE241BA40936D47756D7C93091A0E8514669700EE7508E508E102072E8123B2200A0563322DAD2827E2714A2636B7BFD18AADFC62967821FA18DD4")
 	X, Y := gost.Gost341012512paramSetA.ScalarBaseMultJ(priv.Bytes())
@@ -135,9 +154,27 @@ func Benchmark_gost_sign_j(b *testing.B) {
 
 	b.ResetTimer()
 	b.Run("gost_sign", func(b *testing.B) {
-		for i := 0; i < 100; i++ {
+		for i := 0; i < 1000; i++ {
 			r, s, _ := gost.SignJ(priv, msg, &gost.Gost341012512paramSetA, rand.Reader)
 			verify, _ := gost.VerifyJ(msg, r, s, X, Y, &gost.Gost341012512paramSetA)
+			require.Equal(b, true, verify)
+		}
+	})
+}
+
+func Benchmark_gost_sign_j_2001(b *testing.B) {
+	priv := ecgeneric.BigFromHex("0B293BE050D0082BDAE785631A6BAB68F35B42786D6DDA56AFAF169891040F77")
+	X, Y := gost.Gost34102001paramSetA.ScalarBaseMultJ(priv.Bytes())
+	m := []byte("Hello signature!")
+	hash := sha3.New256()
+	hash.Write(m)
+	msg := hash.Sum(nil)
+
+	b.ResetTimer()
+	b.Run("gost_sign", func(b *testing.B) {
+		for i := 0; i < 1000; i++ {
+			r, s, _ := gost.SignJ(priv, msg, &gost.Gost34102001paramSetA, rand.Reader)
+			verify, _ := gost.VerifyJ(msg, r, s, X, Y, &gost.Gost34102001paramSetA)
 			require.Equal(b, true, verify)
 		}
 	})
@@ -178,6 +215,47 @@ func Benchmark_nist_sign(b *testing.B) {
 	})
 }
 
+func Benchmark_gost_sign_STD(b *testing.B) {
+	privateKey, err := ecgeneric.GenerateKey(&gost.Gost34102001paramSetA, rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	msg := "hello, world"
+	hash := sha256.Sum256([]byte(msg))
+
+	b.ResetTimer()
+	b.Run("gost_sign_verify", func(b *testing.B) {
+		for i := 0; i < 1000; i++ {
+			r, s, _ := gost.SignSTD(rand.Reader, privateKey, hash[:])
+			valid := gost.VerifySTD(&privateKey.PublicKey, hash[:], r, s)
+			require.Equal(b, true, valid)
+		}
+	})
+}
+
+func Benchmark_gost_recover_STD(b *testing.B) {
+	privateKey, err := ecgeneric.GenerateKey(&gost.Gost34102001paramSetA, rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	msg := "hello, world"
+	hash := sha256.Sum256([]byte(msg))
+
+	r, s, _ := gost.SignSTD(rand.Reader, privateKey, hash[:])
+	valid := gost.VerifySTD(&privateKey.PublicKey, hash[:], r, s)
+	require.Equal(b, true, valid)
+
+	b.ResetTimer()
+	b.Run("gost_recover_STD", func(b *testing.B) {
+		for i := 0; i < 1000; i++ {
+			ecRecX, ecRecY := gost.EcrecoverSTD(&privateKey.PublicKey, &gost.Gost34102001paramSetA, hash[:], r, s)
+			require.Equal(b, ecRecX, privateKey.PublicKey.X)
+			require.Equal(b, ecRecY, privateKey.PublicKey.Y)
+		}
+	})
+}
 
 func Benchmark_nist_ecrecover(b *testing.B) {
 	curve := elliptic.P224()
@@ -193,7 +271,28 @@ func Benchmark_nist_ecrecover(b *testing.B) {
 	b.ResetTimer()
 	b.Run("nist_sign_recover", func(b *testing.B) {
 		for i := 0; i < 1000; i++ {
-			ecRecX, ecRecY := ecgeneric.EcrecoverSTD(&privateKey.PublicKey, curve, hash[:], r, s)
+			ecRecX, ecRecY := nist.EcrecoverSTD(&privateKey.PublicKey, curve, hash[:], r, s)
+			require.Equal(b, ecRecX, privateKey.PublicKey.X)
+			require.Equal(b, ecRecY, privateKey.PublicKey.Y)	
+		}
+	})
+}
+
+func Benchmark_nist_ecrecover_p256(b *testing.B) {
+	curve := elliptic.P256()
+	privateKey, err := ecdsa.GenerateKey(curve, rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	b.Log("Pub Key X ", privateKey.PublicKey.X.String())
+	b.Log("Pub Key Y ", privateKey.PublicKey.Y.String())
+	msg := "hello, world"
+	hash := sha256.Sum256([]byte(msg))
+	r, s, _ := ecdsa.Sign(rand.Reader, privateKey, hash[:])
+	b.ResetTimer()
+	b.Run("nist_sign_recover_p256", func(b *testing.B) {
+		for i := 0; i < 1000; i++ {
+			ecRecX, ecRecY := nist.EcrecoverSTD(&privateKey.PublicKey, curve, hash[:], r, s)
 			require.Equal(b, ecRecX, privateKey.PublicKey.X)
 			require.Equal(b, ecRecY, privateKey.PublicKey.Y)	
 		}
