@@ -254,7 +254,7 @@ func Benchmark_gost_recover_STD(b *testing.B) {
 }
 
 func Benchmark_nist_ecrecover(b *testing.B) {
-	curve := elliptic.P256()
+	curve := elliptic.P224()
 	privateKey, err := ecdsa.GenerateKey(curve, rand.Reader)
 	if err != nil {
 		panic(err)
@@ -278,14 +278,12 @@ func Benchmark_nist_ecrecover_p256(b *testing.B) {
 	if err != nil {
 		panic(err)
 	}
-	b.Log("Pub Key X ", privateKey.PublicKey.X.String())
-	b.Log("Pub Key Y ", privateKey.PublicKey.Y.String())
 	msg := "hello, world"
 	hash := sha256.Sum256([]byte(msg))
 	r, s, _ := ecdsa.Sign(rand.Reader, privateKey, hash[:])
 	b.ResetTimer()
-	b.Run("nist_sign_recover_p256", func(b *testing.B) {
-		for i := 0; i < 1000; i++ {
+	b.RunParallel(func(pb *testing.PB)  {
+		for pb.Next() {
 			ecRecX, ecRecY := nist.EcrecoverSTD(&privateKey.PublicKey, curve, hash[:], r, s)
 			require.Equal(b, ecRecX, privateKey.PublicKey.X)
 			require.Equal(b, ecRecY, privateKey.PublicKey.Y)	
